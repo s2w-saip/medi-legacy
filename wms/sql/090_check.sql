@@ -14,5 +14,6 @@ UNION ALL SELECT 'P-01 최근6 지연4 평균2.3', count(*) FILTER (WHERE delay_
   FROM (SELECT delay_days FROM wms.vendor_lead_history WHERE vendor_cd='V-P01' ORDER BY promise_dt DESC LIMIT 6) t
 UNION ALL SELECT '금일 83·61·22·17·6·7',
   ord_received||'·'||alloc_done||'·'||alloc_wait||'·'||picking||'·'||inbound_week||'·'||urgent_ord FROM wmsapi.today_work
+UNION ALL SELECT '위험 주문 12 · 상위10 8', count(*)||' · '||count(*) FILTER (WHERE top10_yn='Y') FROM wmsapi.risk_order
 UNION ALL SELECT '행수 거래처400 품목2000 Lot8000 주문450',
   (SELECT count(*) FROM wms.customer)||' '||(SELECT count(*) FROM wms.item)||' '||(SELECT count(*) FROM wms.stock_lot)||' '||(SELECT count(*) FROM wms.sales_order);

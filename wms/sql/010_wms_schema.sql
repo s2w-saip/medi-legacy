@@ -147,6 +147,7 @@ CREATE INDEX ON wms.vendor_lead_history (vendor_cd);
 CREATE TABLE wms.sales_memo (
   memo_id bigserial PRIMARY KEY,
   cust_cd text NOT NULL,
+  item_cd text,                                -- 이 메모가 걸린 품목. 비면 일반 메모라 배분 근거가 되지 않는다
   memo_dt date NOT NULL,
   memo_tx text NOT NULL,
   author  text NOT NULL

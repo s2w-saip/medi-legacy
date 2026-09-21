@@ -57,6 +57,13 @@ HOT_ORDERS = [  # 주문번호, 거래처, SKU, 수량, 납기, 오더타입
     ("48820", "C0003", "4471",  5, dt.date(2026, 9, 24), "판매"),   # F1: 4472·4 → 4471·5
     ("48825", "C0007", "4472",  4, dt.date(2026, 9, 24), "판매"),   # F1: 옮겨온 4472 결품
     ("48831", "C0005", "4480",  6, dt.date(2026, 9, 25), "판매"),
+    # 경합 SKU 에 걸린 나머지 여섯. 정의서 턴 3 의 "위험 주문 12건 · 그중 8건이 상위 10 거래처" 를 맞춘다.
+    ("48840", "C0002", "4472",  8, dt.date(2026, 9, 25), "판매"),
+    ("48841", "C0006", "4480", 12, dt.date(2026, 9, 26), "판매"),
+    ("48842", "C0001", "5102",  6, dt.date(2026, 9, 24), "판매"),
+    ("48843", "C0007", "5107",  9, dt.date(2026, 9, 26), "판매"),
+    ("48844", "C0006", "6210",  4, dt.date(2026, 9, 25), "판매"),
+    ("48845", "C0004", "5102", 11, dt.date(2026, 9, 28), "판매"),
 ]
 DONE_ORDERS = [  # 이미 처리된 4471 — 앞선 Lot L-2601 에서 나갔다
     ("48790", "C0006", "4471", 4, dt.date(2026, 9, 21), "피킹중",   "L-2601"),
@@ -253,12 +260,13 @@ def main() -> int:
                     [("SH-9001", "#48790", "CJ", "배송 중", NOW),
                      ("SH-9002", "#48781", "CJ", "배송 완료", NOW),
                      ("SH-9003", "#49012", "LOTTE", "배송 중", NOW + dt.timedelta(days=1))]))
-    out.append(rows("wms.sales_memo", ["cust_cd", "memo_dt", "memo_tx", "author"],
-                    [("C0003", NOW - dt.timedelta(days=1), "목요일 수술 예정 — 4471 필수", "영업 김"),
-                     ("C0001", NOW - dt.timedelta(days=2), "응급 콜 대응 물량 상시 확보 요청", "영업 박"),
-                     ("C0004", NOW - dt.timedelta(days=4), "월요일 정기 배송 유지", "영업 최"),
-                     ("C0005", NOW - dt.timedelta(days=3), "시술 일정 변동 가능", "영업 김"),
-                     ("C0006", NOW - dt.timedelta(days=6), "분기 계약 갱신 협의 중", "영업 이")]))
+    # 품목이 붙은 메모만 배분 근거가 된다. 나머지 넷은 일반 메모라 item_cd 가 비어 있다.
+    out.append(rows("wms.sales_memo", ["cust_cd", "item_cd", "memo_dt", "memo_tx", "author"],
+                    [("C0003", "4471", NOW - dt.timedelta(days=1), "목요일 수술 예정 — 4471 필수", "영업 김"),
+                     ("C0001", None,   NOW - dt.timedelta(days=2), "응급 콜 대응 물량 상시 확보 요청", "영업 박"),
+                     ("C0004", None,   NOW - dt.timedelta(days=4), "월요일 정기 배송 유지", "영업 최"),
+                     ("C0005", None,   NOW - dt.timedelta(days=3), "시술 일정 변동 가능", "영업 김"),
+                     ("C0006", None,   NOW - dt.timedelta(days=6), "분기 계약 갱신 협의 중", "영업 이")]))
     out.append(rows("wms.kpi_weekly",
                     ["seq", "kpi_cd", "kpi_nm", "target_tx", "actual_val", "prev_val", "rate_val", "judge", "alert_tx", "dec_pt"],
                     KPI))

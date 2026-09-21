@@ -67,7 +67,8 @@ LEFT JOIN LATERAL (
         WHERE vendor_cd = v.vendor_cd ORDER BY promise_dt DESC LIMIT 6) r
 ) h ON true;
 
--- S4 · 위험 주문 — 납기가 걸렸는데 아직 배정이 안 된 것
+-- S4 · 위험 주문 — 납기가 걸렸고 **재고가 그 품목의 미배정 수요보다 적은** 것.
+-- 재고가 충분한데 아직 배정만 안 된 주문은 위험이 아니다. 그걸 섞으면 목록이 오늘 할 일이 아니라 전체 대기열이 된다.
 CREATE OR REPLACE VIEW wmsapi.risk_order AS
 SELECT o.ord_no, o.cust_cd, c.cust_nm, c.grade, c.region, c.top10_yn, c.penalty_krw,
        o.due_dt, o.ord_type, o.urgent_yn, l.item_cd, l.ord_qty,
@@ -79,9 +80,16 @@ JOIN wms.sales_order_line l USING (ord_no)
 JOIN wms.outbound_alloc a USING (ord_no, line_no)
 JOIN wms.customer c USING (cust_cd)
 LEFT JOIN LATERAL (SELECT sum(qty) AS on_hand FROM wms.stock_lot WHERE item_cd = l.item_cd) s ON true
-LEFT JOIN LATERAL (SELECT memo_tx FROM wms.sales_memo WHERE cust_cd = o.cust_cd
+-- 메모는 그 거래처의 **이 품목에 대한** 것만 근거가 된다. 일반 메모까지 끌어오면 전원에게 가점이 붙는다.
+LEFT JOIN LATERAL (SELECT memo_tx FROM wms.sales_memo
+                   WHERE cust_cd = o.cust_cd AND item_cd = l.item_cd
                    ORDER BY memo_dt DESC LIMIT 1) m ON true
-WHERE a.status = '미배정' AND o.due_dt <= '2026-09-28';
+WHERE a.status = '미배정' AND o.due_dt <= '2026-09-28'
+  AND coalesce(s.on_hand, 0) < (
+    SELECT sum(l2.ord_qty) FROM wms.sales_order_line l2
+    JOIN wms.outbound_alloc a2 USING (ord_no, line_no)
+    JOIN wms.sales_order o2 ON o2.ord_no = l2.ord_no
+    WHERE l2.item_cd = l.item_cd AND a2.status = '미배정' AND o2.due_dt <= '2026-09-28');
 
 -- S5 · 배분 후보. 점수는 SAIP 가 계산한다 — 여기서는 근거가 될 사실만 낸다.
 CREATE OR REPLACE VIEW wmsapi.allocation_candidate AS
@@ -102,7 +110,7 @@ SELECT lot_no, item_cd, qty, exp_dt, recv_dt, loc_cd FROM wms.stock_lot WHERE qt
 CREATE OR REPLACE VIEW wmsapi.customer AS
 SELECT cust_cd, cust_nm, cust_type, grade, region, top10_yn, penalty_krw FROM wms.customer;
 CREATE OR REPLACE VIEW wmsapi.item_alt AS SELECT item_cd, alt_item_cd, note FROM wms.item_alt;
-CREATE OR REPLACE VIEW wmsapi.sales_memo AS SELECT memo_id, cust_cd, memo_dt, memo_tx, author FROM wms.sales_memo;
+CREATE OR REPLACE VIEW wmsapi.sales_memo AS SELECT memo_id, cust_cd, item_cd, memo_dt, memo_tx, author FROM wms.sales_memo;
 CREATE OR REPLACE VIEW wmsapi.cp_notification AS
 SELECT notice_id, ord_no, cust_cd, channel, body_tx, sent_at FROM wms.cp_notification;
 CREATE OR REPLACE VIEW wmsapi.audit_log AS
