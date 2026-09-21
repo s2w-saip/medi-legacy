@@ -181,12 +181,15 @@ def main() -> int:
     for s in HOT_SKUS[1:]:
         lots.append((f"L-26{rnd.randint(10,59)}{s[-1]}", s, 0, dt.date(2028, 1, 31),
                      NOW - dt.timedelta(days=rnd.randint(20, 60)), "A-02-01"))
+    stocked = []          # 재고가 실제로 있는 품목 — 채움 주문은 여기서만 고른다
     k = 0
     while len(lots) < 8000:
         k += 1
         s = rnd.choice(pool)
         exp = None if rnd.random() < 0.06 else NOW + dt.timedelta(days=rnd.randint(120, 900))
-        lots.append((f"L-{30000+k}", s, rnd.randint(1, 240),
+        q = rnd.randint(1, 240)
+        stocked.append(s)
+        lots.append((f"L-{30000+k}", s, q,
                      exp, NOW - dt.timedelta(days=rnd.randint(1, 180)),
                      f"{rnd.choice('ABCD')}-{rnd.randint(1,9):02d}-{rnd.randint(1,9):02d}"))
     out.append("COPY wms.stock_lot (lot_no, item_cd, qty, exp_dt, recv_dt, loc_cd) FROM stdin;\n")
@@ -205,13 +208,30 @@ def main() -> int:
         orders.append((f"#{no}", cc, NOW - dt.timedelta(days=3), odt, "판매", "N", "처리중"))
         lines.append((f"#{no}", 1, s, qty))
         allocs.append((f"#{no}", 1, s, qty, lot, odt, st, None, None))
+    # ── 지난주 지연 주문 29건 — 실제 주문으로 만든다 ──────────────
+    # 사유가 비어 있는 줄도 **그 주문이 무엇을 기다렸는지**는 남는다. 경합 SKU 가 달려 있으면
+    # SAIP 가 "사유는 없지만 입고를 기다린 건" 으로 추론할 수 있다 — 레거시는 그 추론을 못 한다.
+    dr, n = [], 0
+    for seg, cd, nm, cnt, qty in DELAY_MIX:
+        base, rem = divmod(qty, cnt)      # 나머지는 마지막 건에 — 합계가 정의서와 어긋나지 않게
+        for k in range(cnt):
+            n += 1
+            no = f"#{48600+n}"
+            q = base + (rem if k == cnt - 1 else 0)
+            # 입고 구간이었던 건과 사유 미입력 건은 경합 SKU 를 기다렸다. 나머지는 일반 품목.
+            item = rnd.choice(HOT_SKUS) if seg == "입고" else rnd.choice(pool)
+            odt = rnd.choice(LAST_WEEK)
+            orders.append((no, rnd.choice(cust)[0], odt, odt, "판매", "N", "지연마감"))
+            lines.append((no, 1, item, q))
+            allocs.append((no, 1, item, q, f"L-{30000+rnd.randint(1,7900)}", odt, "출고완료", None, None))
+            dr.append((no, cd, nm, q, odt))
     # 오늘(07:26) 접수 83건 = 할당완료 44 + 피킹중 17 + 미배정 22. 고정 오더 6건이 미배정 안에 산다.
     # 앞선 이틀은 나머지를 채운다 — 더미 규모 "3영업일 × 150건" 의 합 450 을 지킨다.
     TODAY_MIX = ["할당완료"] * 44 + ["피킹중"] * 17 + ["미배정"] * (22 - len(HOT_ORDERS))
     rnd.shuffle(TODAY_MIX)
     seq = 0
     urgent = sum(1 for *_, t in HOT_ORDERS if t == '응급')   # 고정 오더의 응급을 먼저 센다
-    while len(orders) < 450:
+    while len(orders) < 450 + len(dr):   # 지난주 지연분은 별도다
         seq += 1
         no = f"#{49000+seq}"
         cc = rnd.choice(cust)[0]
@@ -221,7 +241,7 @@ def main() -> int:
         u = "Y" if urgent < 7 and rnd.random() < 0.05 else "N"
         if u == "Y": urgent += 1
         orders.append((no, cc, odt, d, "응급" if u == "Y" else "판매", u, "접수"))
-        s = rnd.choice(pool)
+        s = rnd.choice(stocked)          # 재고 있는 품목만 — 없는 부족을 만들지 않는다
         qty = rnd.randint(1, 40)
         lines.append((no, 1, s, qty))
         st = TODAY_MIX.pop() if today else rnd.choices(
@@ -229,6 +249,7 @@ def main() -> int:
         allocs.append((no, 1, s, qty if st != "미배정" else 0,
                        f"L-{30000+rnd.randint(1,7900)}" if st != "미배정" else None,
                        d if st != "미배정" else None, st, None, None))
+    out.append(rows("wms.delay_reason", ["ord_no", "reason_cd", "reason_nm", "qty", "occur_dt"], dr))
     out.append(rows("wms.sales_order",
                     ["ord_no", "cust_cd", "ord_dt", "due_dt", "ord_type", "urgent_yn", "status"], orders))
     out.append(rows("wms.sales_order_line", ["ord_no", "line_no", "item_cd", "ord_qty"], lines))
@@ -246,14 +267,6 @@ def main() -> int:
     daily += [(d, o, ot, dl, sh, qy, pc) for d, o, ot, dl, sh, qy, pc in DAILY]
     out.append(rows("wms.outbound_daily",
                     ["out_dt", "ord_cnt", "ontime_cnt", "delay_cnt", "short_cnt", "out_qty", "parcel_cnt"], daily))
-    dr, n = [], 0
-    for seg, cd, nm, cnt, qty in DELAY_MIX:
-        base, rem = divmod(qty, cnt)          # 나머지는 마지막 건에 — 구간 합계가 정의서와 어긋나지 않게
-        for k in range(cnt):
-            n += 1
-            dr.append((f"#{48600+n}", seg, cd, nm, base + (rem if k == cnt - 1 else 0),
-                       rnd.choice(LAST_WEEK)))
-    out.append(rows("wms.delay_reason", ["ord_no", "seg", "reason_cd", "reason_nm", "qty", "occur_dt"], dr))
 
     # ── 운송 · 메모 · KPI
     out.append(rows("wms.shipment", ["ship_no", "ord_no", "carrier_cd", "status", "eta_dt"],

@@ -24,77 +24,39 @@ SELECT (SELECT count(*) FROM wms.sales_order WHERE ord_dt='2026-09-21')        A
           WHERE plan_dt BETWEEN '2026-09-21' AND '2026-09-27')                 AS inbound_week,
        (SELECT count(*) FROM wms.sales_order WHERE urgent_yn='Y')              AS urgent_ord;
 
--- S2 1층 · 구간 판정. 사유 코드가 몇 개든 구간은 셋이다(기타 포함 넷).
-CREATE OR REPLACE VIEW wmsapi.delay_segment AS
-SELECT seg, count(*) AS delay_cnt, sum(qty) AS short_qty,
-       round(100.0*count(*)/sum(count(*)) OVER (),0) AS pct,
-       count(*) FILTER (WHERE reason_cd IS NULL) AS no_reason_cnt
-FROM wms.delay_reason GROUP BY seg;
+-- ── 원천만 낸다 ──────────────────────────────────────────────
+-- 아래 뷰들은 레거시가 **아는 것**만 낸다. 구간 판정 · 입고 보정일 · 위험 주문 · 배분 점수는
+-- 레거시 어디에도 없는 값이고 SAIP 파이프라인이 만든다. 한때 여기서 계산해 내보냈는데
+-- (risk_order · allocation_candidate · inbound_conflict) 그러면 데모가 제품을 건너뛴다 — 지웠다.
 
--- S2 2층 · 고른 구간 안의 사유. 사유가 비어 있는 줄을 숨기지 않는다.
-CREATE OR REPLACE VIEW wmsapi.delay_reason AS
-SELECT seg, coalesce(reason_cd,'NO-REASON') AS reason_cd,
-       coalesce(reason_nm,'기타 · 사유 미입력') AS reason_nm,
-       count(*) AS delay_cnt, sum(qty) AS short_qty
-FROM wms.delay_reason GROUP BY 1,2,3;
-
--- S3 · 결품 → SKU → 입고예정 → 공급공장
-CREATE OR REPLACE VIEW wmsapi.shortage_trace AS
-SELECT i.inb_no, i.item_cd, it.item_nm, i.plan_dt, i.status, i.customs_no,
-       p.po_no, p.vendor_cd, v.vendor_nm, v.plant_cd
-FROM wms.inbound_plan i
-JOIN wms.purchase_order p USING (po_no)
-JOIN wms.vendor v USING (vendor_cd)
-JOIN wms.item it ON it.item_cd = i.item_cd
-WHERE i.item_cd IN ('4471','4472','4480','5102','5107','6210');
-
--- S4 · 소스 대조. 한 줄에 우리 시스템이 아는 값과, 밖에서 확인할 키와,
--- 이미 우리 안에 있는데 아무도 안 보던 납기 이력이 같이 선다.
-CREATE OR REPLACE VIEW wmsapi.inbound_conflict AS
-SELECT i.inb_no, i.item_cd, i.plan_qty,
-       i.plan_dt                                   AS wms_plan_dt,      -- WMS 가 들고 있는 예정일
-       i.status                                    AS wms_status,
-       i.customs_no                                AS customs_key,      -- 외부 통관 조회 키
-       p.po_no, v.vendor_cd, v.plant_cd,
-       h.late_cnt, h.total_cnt, h.avg_delay                             -- 정산관에 있던 값
-FROM wms.inbound_plan i
-JOIN wms.purchase_order p USING (po_no)
-JOIN wms.vendor v USING (vendor_cd)
-LEFT JOIN LATERAL (
-  SELECT count(*) FILTER (WHERE delay_days>0) AS late_cnt, count(*) AS total_cnt,
-         round(avg(delay_days),1) AS avg_delay
-  FROM (SELECT delay_days FROM wms.vendor_lead_history
-        WHERE vendor_cd = v.vendor_cd ORDER BY promise_dt DESC LIMIT 6) r
-) h ON true;
-
--- S4 · 위험 주문 — 납기가 걸렸고 **재고가 그 품목의 미배정 수요보다 적은** 것.
--- 재고가 충분한데 아직 배정만 안 된 주문은 위험이 아니다. 그걸 섞으면 목록이 오늘 할 일이 아니라 전체 대기열이 된다.
-CREATE OR REPLACE VIEW wmsapi.risk_order AS
-SELECT o.ord_no, o.cust_cd, c.cust_nm, c.grade, c.region, c.top10_yn, c.penalty_krw,
-       o.due_dt, o.ord_type, o.urgent_yn, l.item_cd, l.ord_qty,
-       coalesce(s.on_hand,0) AS on_hand,
-       CASE WHEN coalesce(s.on_hand,0) = 0 THEN '결품' ELSE '경합' END AS risk_tx,
-       m.memo_tx
+-- 수주 + 그 줄의 할당 상태. 할당 여부는 출고재고할당 화면이 보여 주는 WMS 사실이라 함께 낸다
+-- (없으면 이미 나간 주문까지 "위험" 으로 잡힌다).
+CREATE OR REPLACE VIEW wmsapi.sales_order AS
+SELECT o.ord_no, o.cust_cd, o.ord_dt, o.due_dt, o.ord_type, o.urgent_yn, o.status,
+       l.line_no, l.item_cd, l.ord_qty,
+       coalesce(a.status, '미배정') AS alloc_status, coalesce(a.alloc_qty, 0) AS alloc_qty
 FROM wms.sales_order o
 JOIN wms.sales_order_line l USING (ord_no)
-JOIN wms.outbound_alloc a USING (ord_no, line_no)
-JOIN wms.customer c USING (cust_cd)
-LEFT JOIN LATERAL (SELECT sum(qty) AS on_hand FROM wms.stock_lot WHERE item_cd = l.item_cd) s ON true
--- 메모는 그 거래처의 **이 품목에 대한** 것만 근거가 된다. 일반 메모까지 끌어오면 전원에게 가점이 붙는다.
-LEFT JOIN LATERAL (SELECT memo_tx FROM wms.sales_memo
-                   WHERE cust_cd = o.cust_cd AND item_cd = l.item_cd
-                   ORDER BY memo_dt DESC LIMIT 1) m ON true
-WHERE a.status = '미배정' AND o.due_dt <= '2026-09-28'
-  AND coalesce(s.on_hand, 0) < (
-    SELECT sum(l2.ord_qty) FROM wms.sales_order_line l2
-    JOIN wms.outbound_alloc a2 USING (ord_no, line_no)
-    JOIN wms.sales_order o2 ON o2.ord_no = l2.ord_no
-    WHERE l2.item_cd = l.item_cd AND a2.status = '미배정' AND o2.due_dt <= '2026-09-28');
+LEFT JOIN wms.outbound_alloc a ON a.ord_no = l.ord_no AND a.line_no = l.line_no;
 
--- S5 · 배분 후보. 점수는 SAIP 가 계산한다 — 여기서는 근거가 될 사실만 낸다.
-CREATE OR REPLACE VIEW wmsapi.allocation_candidate AS
-SELECT r.*, (SELECT alt_item_cd FROM wms.item_alt WHERE item_cd = r.item_cd LIMIT 1) AS alt_item_cd
-FROM wmsapi.risk_order r;
+CREATE OR REPLACE VIEW wmsapi.inbound_plan AS
+SELECT i.inb_no, i.po_no, i.item_cd, i.plan_qty, i.plan_dt, i.status, i.customs_no,
+       p.vendor_cd, p.promise_dt, v.plant_cd, v.vendor_nm
+FROM wms.inbound_plan i JOIN wms.purchase_order p USING (po_no) JOIN wms.vendor v USING (vendor_cd);
+
+CREATE OR REPLACE VIEW wmsapi.purchase_order AS
+SELECT po_no, vendor_cd, item_cd, po_qty, po_dt, promise_dt FROM wms.purchase_order;
+
+CREATE OR REPLACE VIEW wmsapi.vendor_lead_history AS
+SELECT vendor_cd, po_no, promise_dt, actual_dt, delay_days FROM wms.vendor_lead_history;
+
+-- 지연 사유 — **코드만** 준다. 어느 구간에서 샌 것인지는 WMS 가 알 리 없고 SAIP 가 정한다.
+-- 사유가 비어 있는 줄도 그대로 내보낸다. 비어 있다는 사실 자체가 분석 대상이다.
+CREATE OR REPLACE VIEW wmsapi.delay_reason AS
+SELECT ord_no, reason_cd, reason_nm, qty, occur_dt FROM wms.delay_reason;
+
+CREATE OR REPLACE VIEW wmsapi.item AS
+SELECT item_cd, item_nm, category, uom, import_yn FROM wms.item;
 
 -- S7 · 출고관리 > 출고재고할당 (레거시 화면이 보는 그 표)
 CREATE OR REPLACE VIEW wmsapi.outbound_alloc AS
@@ -104,6 +66,13 @@ FROM wms.outbound_alloc a
 JOIN wms.sales_order o USING (ord_no)
 JOIN wms.sales_order_line l ON l.ord_no = a.ord_no AND l.line_no = a.line_no
 JOIN wms.customer c USING (cust_cd);
+
+-- 재고관리 > 재고현황조회 — 품목별 가용 재고. WMS 화면이 그대로 보여 주는 값이라 Lot 8,000행을
+-- 전부 끌어올 이유가 없다(끌어오면 페이지 상한에 걸려 재고가 틀리고, 없는 부족이 생긴다).
+CREATE OR REPLACE VIEW wmsapi.stock_on_hand AS
+SELECT item_cd, sum(qty)::int AS on_hand, count(*)::int AS lot_cnt,
+       count(*) FILTER (WHERE exp_dt IS NULL)::int AS no_exp_cnt
+FROM wms.stock_lot GROUP BY item_cd;
 
 CREATE OR REPLACE VIEW wmsapi.stock_lot AS
 SELECT lot_no, item_cd, qty, exp_dt, recv_dt, loc_cd FROM wms.stock_lot WHERE qty > 0;

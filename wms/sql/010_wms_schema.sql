@@ -100,11 +100,10 @@ CREATE TABLE wms.outbound_daily (
   out_qty     integer NOT NULL,
   parcel_cnt  integer NOT NULL
 );
--- 지연 사유. seg 가 구간이다 — 사유 코드가 몇 개든 구간은 셋이다(현업 우려 반영).
+-- 지연 사유. **구간은 없다** — WMS 는 사유 코드만 안다. 어느 구간에서 샌 것인지는 SAIP 가 정한다.
 CREATE TABLE wms.delay_reason (
   ord_no    text NOT NULL,
-  seg       text NOT NULL,                    -- 입고 | 창고 | 배송 | 기타
-  reason_cd text,                              -- 비어 있을 수 있다 — '사유 미입력' 이 곧 결론이다
+  reason_cd text,                              -- 비어 있을 수 있다. 비어 있다는 사실이 곧 분석 대상이다
   reason_nm text,
   qty       integer NOT NULL DEFAULT 0,
   occur_dt  date NOT NULL
