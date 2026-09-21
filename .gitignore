@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+wms/sql/040_wms_seed.sql
+wms/sql/041_wms_bulk.sql

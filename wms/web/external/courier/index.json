@@ -1,0 +1,6 @@
+{"as_of":"2026-09-21T07:26:00+09:00","carrier":"CJ대한통운","on_time_rate_30d":98.4,
+ "shipments":[
+  {"ship_no":"SH-9001","ord_no":"#48790","status":"배송 중","eta":"2026-09-21T18:00:00+09:00","region":"인천"},
+  {"ship_no":"SH-9002","ord_no":"#48781","status":"배송 완료","eta":"2026-09-21T11:20:00+09:00","region":"대전"},
+  {"ship_no":"SH-9003","ord_no":"#49012","status":"배송 중","eta":"2026-09-22T14:00:00+09:00","region":"경기북부"}],
+ "lead_time_biz_days":1}

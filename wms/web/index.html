@@ -1,0 +1,136 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>HB-WMS v4.2.17 · 통합창고관리시스템</title>
+<style>
+/* 2000년대 업무 시스템 톤 — 일부러 낡게 둔다. 이 화면이 데모의 출발점이다. */
+*{box-sizing:border-box}
+body{margin:0;background:#dfe6ef;font:12px/1.45 "맑은 고딕","Malgun Gothic",Dotum,sans-serif;color:#1b1b1b}
+.tbar{background:linear-gradient(#2b5a9b,#1e4478);color:#fff;padding:4px 8px;font-weight:700;font-size:12.5px;display:flex;align-items:center;gap:8px}
+.tbar .box{width:11px;height:11px;border:1px solid #cfe0f5;background:#5b8fd0}
+.tbar .win{margin-left:auto;display:flex;gap:3px}
+.tbar .win i{width:15px;height:13px;background:#c6d7ec;border:1px solid #17365d;display:inline-block}
+.tbar .win i.x{background:#d0342c}
+.mbar{background:#eef2f7;border-bottom:1px solid #9bb0c9;padding:3px 6px;display:flex;gap:2px}
+.mbar span{padding:3px 9px;cursor:default}
+.mbar span:hover{background:#cfdcec}
+.mbar .who{margin-left:auto;color:#33475f;padding-right:6px}
+.wrap{display:flex;min-height:calc(100vh - 46px)}
+.lft{width:176px;background:#f4f7fa;border-right:1px solid #9bb0c9;padding:6px 0;font-size:12px}
+.lft h4{margin:0 0 4px;padding:0 8px;font-size:12px;color:#33475f}
+.lft a{display:block;padding:3px 8px 3px 14px;color:#1b1b1b;text-decoration:none}
+.lft a.g{padding-left:8px;font-weight:700}
+.lft a.on{background:#2b5a9b;color:#fff}
+.rgt{flex:1;min-width:0;padding:6px 8px 0;display:flex;flex-direction:column}
+.tabs{display:flex;gap:3px;border-bottom:1px solid #9bb0c9;padding-left:2px}
+.tabs b{background:#fff;border:1px solid #9bb0c9;border-bottom:0;padding:4px 10px;font-weight:700}
+.tabs s{background:#dbe4ef;border:1px solid #9bb0c9;border-bottom:0;padding:4px 10px;text-decoration:none;color:#3c4d63}
+.body{background:#fff;border:1px solid #9bb0c9;border-top:0;flex:1;padding:8px;display:flex;gap:8px;min-height:0}
+.main{flex:1;min-width:0}
+.side{width:246px}
+h3{margin:0 0 6px;font-size:14px}
+h3 em{font-style:normal;color:#5b6b7f;font-weight:400;font-size:12px}
+.tools{display:flex;gap:4px;justify-content:flex-end;margin:-22px 0 8px}
+.tools button{font:inherit;padding:3px 10px;border:1px solid #7f96b1;background:linear-gradient(#fff,#dde6f1);cursor:pointer}
+.tools button.ai{border-color:#1e4478;background:linear-gradient(#5b8fd0,#2b5a9b);color:#fff;font-weight:700}
+.flt{background:#f4f7fa;border:1px solid #c3d0e0;padding:5px 7px;margin-bottom:7px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.flt select,.flt input{font:inherit;border:1px solid #9bb0c9;padding:2px 4px;background:#fff}
+.flt .asof{margin-left:auto;color:#5b6b7f}
+.cap{background:#e4ebf4;border:1px solid #c3d0e0;border-bottom:0;padding:3px 7px;font-weight:700}
+table{border-collapse:collapse;width:100%;background:#fff}
+th,td{border:1px solid #c3d0e0;padding:3px 6px;text-align:right;white-space:nowrap}
+th{background:#e9eff6;text-align:center;font-weight:700}
+td.l{text-align:left}td.c{text-align:center}
+tr.sum td{background:#eef2f7;font-weight:700}
+.bad{color:#c00;font-weight:700}
+.alert{border:1px solid #c3d0e0;margin-bottom:8px}
+.alert .cap{display:flex}.alert .cap b{margin-left:auto;color:#c00}
+.alert div.a{border-top:1px solid #e3e9f1;background:#fdf1f1;padding:5px 7px;text-align:left}
+.alert div.a i{font-style:normal;color:#c00;font-weight:700}
+.alert div.a small{color:#5b6b7f}
+.sbar{background:#eef2f7;border-top:1px solid #9bb0c9;padding:3px 8px;display:flex;gap:16px;color:#33475f}
+.sbar .r{margin-left:auto}
+.note{color:#5b6b7f;padding:6px 7px;border:1px solid #c3d0e0;border-top:0;text-align:left}
+</style></head><body>
+<div class="tbar"><span class="box"></span>HB-WMS v4.2.17 · 통합창고관리시스템 [WH01 김포센터]
+  <span class="win"><i></i><i></i><i class="x"></i></span></div>
+<div class="mbar"><span>기준정보</span><span>입고관리</span><span>출고관리</span><span>재고관리</span><span>운송관리</span><span>정산관리</span><span>KPI/리포트</span><span>시스템관리</span>
+  <span class="who">사용자: 김센터(센터장) · <span id="today">2026-09-21</span></span></div>
+<div class="wrap">
+  <div class="lft"><h4>메뉴</h4>
+    <a class="g" href="#">▸ 기준정보관리</a><a class="g" href="#">▸ 입고관리</a>
+    <a class="g" href="#">▾ 출고관리</a>
+    <a href="#">- 출고주문조회</a><a href="#">- 출하계획</a><a href="#">- 출고재고할당</a><a href="#">- 피킹/패킹</a><a href="#">- 출고리스트</a>
+    <a class="g" href="#">▸ 재고관리</a><a class="g" href="#">▸ 운송관리</a><a class="g" href="#">▸ 정산관리</a>
+    <a class="g" href="#">▾ KPI/리포트</a>
+    <a class="on" href="#">- 출고KPI현황</a><a href="#">- 입고KPI현황</a><a href="#">- 재고KPI현황</a><a href="#">- 일일실적리포트</a><a href="#">- 월간실적리포트</a>
+    <a class="g" href="#">▸ 시스템관리</a></div>
+  <div class="rgt">
+    <div class="tabs"><b>출고KPI현황 ✕</b><s>출고재고할당 ✕</s><s>재고현황조회 ✕</s><s>입고예정조회 ✕</s></div>
+    <div class="body">
+      <div class="main">
+        <h3>출고 KPI 현황 <em>[KPI0201]</em></h3>
+        <div class="tools">
+          <button>조회(F2)</button><button>엑셀</button><button>인쇄</button><button>즐겨찾기</button>
+          <button class="ai" id="ai">AI 판단 요청</button>
+        </div>
+        <div class="flt">창고 <select><option>WH01 김포센터</option></select>
+          기준기간 <input value="2026-09-14" size="9"> ~ <input value="2026-09-18" size="9">
+          거래처 <input placeholder="전체" size="12"> 집계 <select><option>주간</option></select>
+          <span class="asof">조회일시 <span id="asof">—</span> · 전주 대비</span></div>
+        <div class="cap">■ 주간 KPI (총 <span id="kn">0</span>건)</div>
+        <table id="kpi"><thead><tr><th>No</th><th>KPI 항목</th><th>목표</th><th>실적</th><th>전주</th><th>달성률</th><th>판정</th><th>알림</th></tr></thead><tbody></tbody></table>
+        <div style="height:9px"></div>
+        <div class="cap">■ 일자별 출고 실적 (2026-09-14 ~ 09-18)</div>
+        <table id="daily"><thead><tr><th>일자</th><th>요일</th><th>출고주문</th><th>정시출고</th><th>지연</th><th>결품</th><th>정시율(%)</th><th>출고수량(EA)</th><th>택배건</th></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="side">
+        <div class="alert"><div class="cap">■ 임계치 알림 <b id="an">0건</b></div><div id="alerts"></div></div>
+        <div class="cap">■ 금일 작업 현황 (07:26)</div>
+        <table id="work"><tbody></tbody></table>
+        <div class="note">알림은 임계치 이탈만 표시됩니다. 원인 분석은 일일실적리포트를 참조하십시오.</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="sbar"><span>준비</span><span>서버 WMSAP01</span><span id="db">DB 접속 확인 중</span><span>세션 00:31:22</span>
+  <span class="r" id="cnt">—</span></div>
+<script>
+const API = '/api';
+const n = (v, d) => Number(v).toLocaleString('ko-KR', d === undefined ? {} : {minimumFractionDigits: d, maximumFractionDigits: d});
+const j = async p => (await fetch(API + p, {headers:{'Accept':'application/json'}})).json();
+const td = (v, cls='') => `<td class="${cls}">${v}</td>`;
+(async () => {
+  try {
+    const [kpi, daily, work] = await Promise.all([j('/kpi_weekly?order=seq'), j('/outbound_daily?out_dt=gte.2026-09-14&out_dt=lte.2026-09-18&order=out_dt'), j('/today_work')]);
+    const w = work[0] || {};
+    document.querySelector('#kpi tbody').innerHTML = kpi.map(k => {
+      const b = k.judge === '미달' ? 'bad' : '';
+      return `<tr>${td(k.seq,'c')}${td(k.kpi_nm,'l')}${td(k.target_tx)}${td(n(k.actual_val,k.dec_pt),b)}${td(n(k.prev_val,k.dec_pt))}${td(n(k.rate_val,1),b)}${td(k.judge,'c '+b)}${td(k.alert_tx?'▲ 경고':'-','c '+b)}</tr>`;
+    }).join('');
+    document.getElementById('kn').textContent = kpi.length;
+    const D = ['일','월','화','수','목','금','토'];
+    let s = {o:0,t:0,d:0,h:0,q:0,p:0};
+    document.querySelector('#daily tbody').innerHTML = daily.map(r => {
+      s.o+=r.ord_cnt; s.t+=r.ontime_cnt; s.d+=r.delay_cnt; s.h+=r.short_cnt; s.q+=r.out_qty; s.p+=r.parcel_cnt;
+      const b = r.ontime_rate < 95 ? 'bad' : '';
+      return `<tr>${td(r.out_dt,'c')}${td(D[new Date(r.out_dt).getDay()],'c')}${td(n(r.ord_cnt))}${td(n(r.ontime_cnt))}${td(n(r.delay_cnt),r.delay_cnt>5?'bad':'')}${td(n(r.short_cnt),r.short_cnt>4?'bad':'')}${td(r.ontime_rate.toFixed(1),b)}${td(n(r.out_qty))}${td(n(r.parcel_cnt))}</tr>`;
+    }).join('') + `<tr class="sum">${td('합계','c')}${td('')}${td(n(s.o))}${td(n(s.t))}${td(n(s.d))}${td(n(s.h))}${td((100*s.t/s.o).toFixed(1))}${td(n(s.q))}${td(n(s.p))}</tr>`;
+    const al = kpi.filter(k => k.alert_tx);
+    document.getElementById('an').textContent = al.length + '건';
+    document.getElementById('alerts').innerHTML = al.map(k =>
+      `<div class="a"><i>▲ [${k.kpi_cd}] ${k.alert_tx}</i><br><small>2026-09-21 07:00 자동집계</small></div>`).join('');
+    document.querySelector('#work tbody').innerHTML = [
+      ['출고주문 접수', w.ord_received], ['할당 완료', w.alloc_done], ['할당 대기', w.alloc_wait],
+      ['피킹 진행', w.picking], ['입고예정(금주)', w.inbound_week], ['응급주문', w.urgent_ord]
+    ].map(([k,v]) => `<tr>${td(k,'l')}${td(n(v||0))}</tr>`).join('');
+    document.getElementById('db').textContent = 'DB 접속 정상';
+    document.getElementById('asof').textContent = new Date().toLocaleString('ko-KR');
+    document.getElementById('cnt').textContent = `조회 ${kpi.length}건 / ${daily.length}건 · 0.21초`;
+  } catch (e) {
+    document.getElementById('db').textContent = 'DB 접속 오류 — ' + e.message;
+  }
+})();
+// 데모의 출발 버튼. 지금 보고 있는 지표를 그대로 물려 MediOS 를 연다.
+document.getElementById('ai').onclick = () => {
+  const p = new URLSearchParams({from:'HB-WMS', screen:'출고KPI현황', metric:'정시출고율', value:'94.0', target:'97.0', period:'2026-09-14~2026-09-18', wh:'WH01'});
+  location.href = 'http://10.0.20.132:8091/medi?' + p;
+};
+</script></body></html>

@@ -1,0 +1,60 @@
+# 한빛메디컬 HB-WMS — 레거시 통합창고관리시스템 더미 (medi-legacy).
+#
+#   wmsdb   PostgreSQL 55433   레거시 DB (스키마 wms · 연계 뷰 wmsapi)
+#   wmsapi  PostgREST  (내부)  연계 인터페이스 — 조회 뷰 + 쓰기 RPC. 밖으로 직접 열지 않는다.
+#   wmsweb  nginx      8099    경계 포트 하나 — S0 화면(/) · 연계 API(/api/) · 안내 채널(/cp/) · 제3자 목(/external/)
+#
+# 레거시는 HB-WMS **하나**다. 정의서 4.1 이 OMS·MDM·ERP 로 나눠 적은 것은 이 통합 WMS 의
+# 모듈(주문·기준정보·정산)이다 — S0 화면의 메뉴가 그 근거다(교정 F4).
+#
+# 포트 55433 — 플랫폼 postgres 가 5432, 항공 레거시가 55432 를 쓴다.
+# 8099 — 이 VM 이 밖에서 닿는 8080~8099 중 유일하게 비어 있던 번호(2026-09-21 실측).
+name: medi-legacy
+services:
+  wmsdb:
+    image: postgres:16-alpine
+    container_name: saip-medi-wmsdb
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${WMSDB_NAME:-hbwms}
+      POSTGRES_USER: ${WMSDB_USER:-hbwms}
+      POSTGRES_PASSWORD: ${WMSDB_PASSWORD:-hbwms_demo_pw}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "55433:5432"
+    volumes:
+      - wmsdb-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${WMSDB_USER:-hbwms} -d ${WMSDB_NAME:-hbwms}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  wmsapi:
+    image: postgrest/postgrest:v12.2.3
+    container_name: saip-medi-wmsapi
+    restart: unless-stopped
+    depends_on:
+      wmsdb:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://${WMS_API_USER:-wms_api}:${WMS_API_PASSWORD:-wms_api_pw}@wmsdb:5432/${WMSDB_NAME:-hbwms}
+      PGRST_DB_SCHEMAS: wmsapi
+      PGRST_DB_ANON_ROLE: wms_anon
+      PGRST_DB_MAX_ROWS: 5000
+      PGRST_OPENAPI_SERVER_PROXY_URI: http://10.0.20.132:8099/api
+      PGRST_LOG_LEVEL: info
+
+  wmsweb:
+    image: nginx:1.27-alpine
+    container_name: saip-medi-wmsweb
+    restart: unless-stopped
+    depends_on: [wmsapi]
+    volumes:
+      - ./wms/web:/usr/share/nginx/html:ro
+      - ./wms/nginx-default.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "8099:80"
+
+volumes:
+  wmsdb-data:
