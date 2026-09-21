@@ -131,6 +131,6 @@ const td = (v, cls='') => `<td class="${cls}">${v}</td>`;
 // 데모의 출발 버튼. 지금 보고 있는 지표를 그대로 물려 MediOS 를 연다.
 document.getElementById('ai').onclick = () => {
   const p = new URLSearchParams({from:'HB-WMS', screen:'출고KPI현황', metric:'정시출고율', value:'94.0', target:'97.0', period:'2026-09-14~2026-09-18', wh:'WH01'});
-  location.href = 'http://10.0.20.132:8091/medi?' + p;
+  location.href = 'http://10.0.20.132:8088/medi?' + p;
 };
 </script></body></html>
