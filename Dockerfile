@@ -5,6 +5,9 @@
 #   db-restore : dumps/2026-09-22 의 hbwms 덤프를 PGHOST 로 pg_restore 하는 일회성 Job (restore-k8s.sh)
 # postgres(wmsdb)·PostgREST(wmsapi) 는 공식 이미지(postgres:16-alpine · postgrest/postgrest:v12.2.3)를 매니페스트에서 그대로 쓴다 — 환경변수는 docker-compose.yml 참고.
 # 빌드: docker build --target web -t medi-legacy-web:local .   /   docker build --target db-restore -t medi-legacy-db-restore:local .
+# K8s(AKS, linux/amd64) 용 빌드 — Apple Silicon 에서는 --platform 을 빼면 arm64 이미지가 만들어져 노드에서 exec format error 가 난다:
+#   docker buildx build --platform linux/amd64 --target web        -t <registry>/demo-medi-legacy-web:<tag> --push .
+#   docker buildx build --platform linux/amd64 --target db-restore -t <registry>/demo-medi-legacy-db-restore:<tag> --push .
 
 FROM nginx:1.27-alpine AS web
 COPY wms/nginx-default.conf /etc/nginx/conf.d/default.conf
