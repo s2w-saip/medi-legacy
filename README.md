@@ -57,3 +57,7 @@ E병원은 경기E병원 하나다.
 
 문서: [MediOS 개발 계획](http://10.0.20.132:8091/docs/plans/2026-09-21-medios-dev-plan.html) ·
 [구축정의서·교정안](http://10.0.20.132:8091/docs/plans/2026-09-21-medi-outbound-agent.html)
+
+## K8s 시연용 이미지
+
+로컬은 `docker compose up` 그대로다. K8s 에 올릴 때만 [Dockerfile](Dockerfile) 의 타깃 둘을 굽는다 — `web`(nginx, S0 화면 내장)·`db-restore`(`dumps/2026-09-22` 덤프를 `PGHOST` 로 복원하는 일회성 Job, 환경변수는 `dumps/2026-09-22/restore-k8s.sh` 머리글). postgres·PostgREST 는 공식 이미지를 그대로 쓰고 환경변수는 `docker-compose.yml` 과 같다. **PostgREST Service 이름은 `wmsapi`, 포트 3000** — `wms/nginx-default.conf` 가 그 이름으로 `/api` 를 넘긴다(없으면 nginx 가 기동하지 않는다). 복원 뒤 PostgREST 를 재시작한다.
