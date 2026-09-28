@@ -42,7 +42,8 @@ services:
       PGRST_DB_SCHEMAS: wmsapi
       PGRST_DB_ANON_ROLE: wms_anon
       PGRST_DB_MAX_ROWS: 5000
-      PGRST_OPENAPI_SERVER_PROXY_URI: http://10.0.20.132:8099/api
+      # OpenAPI 에 적히는 공개 주소 — 다른 호스트/쿠버네티스에서는 WMS_PUBLIC_URL (예: https://medi-legacy.dev.saip.io) 로 바꾼다.
+      PGRST_OPENAPI_SERVER_PROXY_URI: ${WMS_PUBLIC_URL:-http://10.0.20.132:8099}/api
       PGRST_LOG_LEVEL: info
 
   wmsweb:

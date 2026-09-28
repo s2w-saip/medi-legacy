@@ -21,8 +21,8 @@ wmsdb 를 띄우고(healthy 대기) → 역할 → `pg_restore --clean --if-exis
 
 ## 새 호스트에서 바꿀 값
 
-- `docker-compose.yml:45` `PGRST_OPENAPI_SERVER_PROXY_URI` — 새 호스트 주소로
-- `wms/web/index.html:134` — "AI 판단 요청" 버튼이 옛 장비의 MediOS(:8088) 를 가리킨다. 안 바꾸면 데모 출발 버튼이 옛 장비로 간다
+- env `WMS_PUBLIC_URL`(`.env`) — `docker-compose.yml:46` `PGRST_OPENAPI_SERVER_PROXY_URI` 가 `${WMS_PUBLIC_URL:-http://10.0.20.132:8099}/api` 로 읽는다. html 은 안 고친다
+- `wms/web/config.js` 의 `mediosUrl` — "AI 판단 요청" 버튼이 여는 MediOS 주소(기본 옛 장비의 :8088). 안 바꾸면 데모 출발 버튼이 옛 장비로 간다. index.html 줄을 고치지 말고 이 파일(쿠버네티스면 ConfigMap)만 바꾼다
 - PostgREST 접속 계정 `wms_api` 의 비밀번호는 `docker-compose.yml:41`(`.env` 의 `WMS_API_PASSWORD`)을 따른다 — `restore.sh` 가 그 값을 읽어 역할에 넣으므로 따로 맞출 것이 없다. `wms/sql/010_wms_schema.sql:192` 와도 같아야 `make seed` 경로가 맞는다
 - platform 쪽 연결 `hbwms-legacy-api` 의 주소는 platform 덤프의 `saip_control.connections` 에 있다 — Factory 에서 고친다
 
